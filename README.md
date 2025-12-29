@@ -1,4 +1,4 @@
-# GitLab-CI-CD-
+# GitLab-CI-CD
 # 1. Run SonarQube with Docker
 
 ```bash
@@ -33,7 +33,8 @@ Add the following variables:
 
 After saving these variables, rerun the pipeline. The SonarQube analysis should now work.
 
-![image.png](attachment:8a793ec7-a8d9-4892-8b56-4b038cffc142:image.png)
+<img width="1920" height="945" alt="image" src="https://github.com/user-attachments/assets/61f1bfd7-d331-40a2-a807-25f718e7f79b" />
+
 
 This screen is **SonarQube telling you exactly what variables are missing** and where to add them. Nothing is broken.
 
@@ -76,8 +77,9 @@ Save it.
 - SonarQube needs **authentication** (`SONAR_TOKEN`)
 - SonarQube needs to know **where the server is running** (`SONAR_HOST_URL`)
 - Your pipeline cannot run analysis without these two variables
+- 
+<img width="1568" height="729" alt="image" src="https://github.com/user-attachments/assets/e2c154e3-ded3-4c45-8092-98e72f937035" />
 
-![image.png](attachment:07f52668-5974-45fd-9d90-e12e9697a05a:image.png)
 
 ---
 
@@ -95,7 +97,8 @@ This page means **GitLab CI variables are missing**; add `SONAR_TOKEN` and `SONA
 
 ---
 
-![image.png](attachment:3c0ff1b0-0190-45b4-9ca4-b25684a51246:image.png)
+<img width="1879" height="740" alt="image" src="https://github.com/user-attachments/assets/bf79a78c-3e27-447c-be2f-71f6ba9c580e" />
+
 
 ### What this highlighted line means
 
@@ -533,8 +536,5 @@ tags:
 5. Build the final JAR with Maven.
 6. Deploy the application (currently a placeholder with `echo` commands).
 
-![image.png](attachment:3d37b9cc-e043-4003-83a9-8139ce75277e:image.png)
+<img width="1521" height="744" alt="image" src="https://github.com/user-attachments/assets/cf6563ad-1d66-46a9-8458-10d4cf476631" />
 
-![image.png](attachment:c8b4fdb4-dc0c-4603-b097-2c8de9d696dc:image.png)
-
-![image.png](attachment:976d2d1c-b598-4dd2-8b5d-3934eeafcf4d:image.png)
