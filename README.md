@@ -16,7 +16,7 @@ When you connect SonarQube with GitLab CI, SonarQube shows a screen explaining w
 In your GitLab project, go to:
 
 > **Settings → CI/CD → Variables**
-> 
+>  
 
 Add the following variables:
 
