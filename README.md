@@ -715,6 +715,9 @@ trivy-scan-job:
 5. Generates report
 6. Fails job if high severity issues exist (default behavior)
 
+<img width="1342" height="746" alt="image" src="https://github.com/user-attachments/assets/85749abd-b568-4ea3-9c57-c2b7c878e305" />
+
+
 ---
 
 ## 8) How Gitleaks and Trivy work together
@@ -731,6 +734,8 @@ Together they cover:
 * Config risks
 
 ---
+<img width="1689" height="138" alt="image" src="https://github.com/user-attachments/assets/3de4b219-d1ca-4b65-82cb-f905d733c037" />
+
 
 ## 9) Why this setup is industry standard
 
