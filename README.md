@@ -538,6 +538,8 @@ tags:
 
 <img width="1521" height="744" alt="image" src="https://github.com/user-attachments/assets/cf6563ad-1d66-46a9-8458-10d4cf476631" />
 
+---
+# **Gitleaks and Trivy**
 
 Below is a **from-scratch, clean explanation** of how to **install and use Gitleaks and Trivy in a GitLab CI pipeline**, starting from **why we install**, **where we install**, **the exact YAML code**, and **how GitLab executes it internally**.
 
