@@ -11,7 +11,7 @@ docker -d -p 9000:9000 sonarqube:community
 
 ## 2. Configure GitLab CI/CD Variables
 
-When you connect SonarQube with GitLab CI, SonarQube shows a screen explaining which CI variables are missing. This is not an error. It is just telling you what to configure.
+When you connect SonarQube with GitLab CI, SonarQube shows a screen  explaining which CI variables are missing. This is not an error. It is just telling you what to configure.
 
 In your GitLab project, go to:
 
