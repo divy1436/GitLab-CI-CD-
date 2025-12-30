@@ -541,102 +541,129 @@ tags:
 ---
 # **Gitleaks and Trivy**
 
-Below is a **from-scratch, clean explanation** of how to **install and use Gitleaks and Trivy in a GitLab CI pipeline**, starting from **why we install**, **where we install**, **the exact YAML code**, and **how GitLab executes it internally**.
+**Summary**
+Gitleaks and Trivy are core DevSecOps security scanners. Gitleaks stops leaked secrets from entering your codebase. Trivy finds known vulnerabilities in dependencies, configs, and images. Both run early in CI to fail fast and reduce risk.
 
 ---
 
-## 1) Why installation is needed in GitLab CI
+## 1) What is Gitleaks and why it is needed
 
-In GitLab CI, each job runs on a **runner machine**.
+### What it is
 
-By default, that machine **does not have security tools installed**.
+**Gitleaks** is a secret-scanning tool. It scans source code and Git history to detect hardcoded secrets.
 
-So we must:
+### What it detects
 
-- Install tools once
-- Reuse them in later jobs
-- Keep the pipeline fast and stable
+* API keys (AWS, Google, Stripe, etc.)
+* Database passwords
+* OAuth tokens
+* Private keys
+* Hardcoded credentials in config files
 
-This is why we create a dedicated **install stage**.
+### Why it is critical
+
+* Secrets once committed are hard to revoke
+* Attackers actively scan public and private repos
+* One leaked token can lead to data breach or cloud bill abuse
+
+### Why run it in CI
+
+* Blocks insecure commits automatically
+* Prevents secrets from reaching production
+* Enforces security without manual review
 
 ---
 
-## 2) Pipeline design for security tools
+## 2) What is Trivy and why it is needed
 
-**Correct DevSecOps order**
+### What it is
 
+**Trivy** is a vulnerability scanner by Aqua Security. It scans filesystems, dependencies, containers, and configs.
+
+### What it detects
+
+* CVEs in dependencies (Maven, npm, pip, etc.)
+* Vulnerable libraries from pom.xml
+* Misconfigured files
+* OS package vulnerabilities
+* Container image flaws (if used)
+
+### Why it is critical
+
+* Most breaches happen due to vulnerable dependencies
+* Developers rarely track CVEs manually
+* Vulnerabilities exist even if your code is correct
+
+### Why run it in CI
+
+* Stops builds with known CVEs
+* Creates compliance-ready reports
+* Shifts security left before deployment
+
+---
+
+## 3) Where these tools are installed in GitLab CI
+
+In GitLab CI:
+
+* Each job runs on a fresh runner
+* Tools are not available by default
+* So tools must be installed in an **install stage**
+* Later jobs reuse the same runner environment
+
+---
+
+## 4) Trivy installation explained step by step
+
+### What happens technically
+
+1. Add Trivy’s official signing key
+2. Add Trivy repository
+3. Update apt index
+4. Install Trivy binary
+5. Verify installation
+
+### Linux install commands (used in CI)
+
+```bash
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+  | gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+  > /etc/apt/sources.list.d/trivy.list
+
+apt-get update
+apt-get install -y trivy
+trivy --version
 ```
-Install tools
-↓
-Compile code
-↓
-Secret scan (Gitleaks)
-↓
-Vulnerability scan (Trivy)
-↓
-Tests
-↓
-SonarQube
-↓
-Build
-↓
-Deploy
-
-```
-
-Security scans run **before tests and build** to stop insecure code early.
 
 ---
 
-## 3) Full GitLab CI YAML starting from install stage
+## 5) Minimal GitLab CI code for Trivy (clean and correct)
 
-### Global configuration
+### Global pipeline setup
 
 ```yaml
-image:
-  name: ubuntu:22.04
+image: ubuntu:22.04
 
 variables:
   DEBIAN_FRONTEND: noninteractive
 
 stages:
   - install
-  - compile
-  - gitleaks
   - trivy
-  - test
-
 ```
 
 ---
 
-## 4) Install stage (MOST IMPORTANT)
-
-This job installs:
-
-- Java
-- Maven
-- Gitleaks
-- Trivy
+### Install job (Trivy only)
 
 ```yaml
 install-job:
   stage: install
   script:
     - apt-get update
-    - apt-get install -y wget gnupg curl unzip
-
-    # Install Java
-    - apt-get install -y openjdk-21-jdk-headless
-    - java -version
-
-    # Install Maven
-    - apt-get install -y maven
-    - mvn -version
-
-    # Install Gitleaks
-    - apt-get install -y gitleaks
-    - gitleaks version
+    - apt-get install -y wget curl gnupg
 
     # Install Trivy
     - wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
@@ -646,134 +673,72 @@ install-job:
     - apt-get update
     - apt-get install -y trivy
     - trivy --version
-
 ```
-
-### What happens internally
-
-1. Runner starts Ubuntu container
-2. Updates package lists
-3. Installs security tools
-4. Tools become available to later jobs
 
 ---
 
-## 5) Compile stage
+### Trivy filesystem scan job
 
 ```yaml
-compile-job:
-  stage: compile
+trivy-scan-job:
+  stage: trivy
   needs:
     - install-job
   script:
-    - mvn clean compile
-
+    - trivy fs . --format table
 ```
-
-### Execution
-
-- Uses Maven installed earlier
-- Compiles Java source code
-- If compilation fails, pipeline stops
 
 ---
 
-## 6) Gitleaks implementation
-
-### YAML code
+## 6) Trivy scan with HTML report (recommended)
 
 ```yaml
-gitleaks-scan-job:
-  stage: gitleaks
-  needs:
-    - compile-job
-  script:
-    - gitleaks detect --source . --report-path gitleaks-report.txt
-  artifacts:
-    paths:
-      - gitleaks-report.txt
-
-```
-
-### What happens step by step
-
-1. GitLab checks out repository
-2. Gitleaks scans:
-    - Source files
-    - Git history
-3. Detects secrets like:
-    - API keys
-    - Passwords
-    - Tokens
-4. Generates report
-5. If secrets found → job fails
-
----
-
-## 7) Trivy filesystem scan implementation
-
-### YAML code
-
-```yaml
-trivy-fs-scan-job:
+trivy-scan-job:
   stage: trivy
   needs:
-    - gitleaks-scan-job
+    - install-job
   script:
     - trivy fs . --format html --output trivy-report.html
   artifacts:
     paths:
       - trivy-report.html
-
 ```
-
-### What happens step by step
-
-1. Trivy downloads vulnerability database
-2. Scans project files:
-    - pom.xml
-    - dependencies
-    - config files
-3. Matches CVEs
-4. Generates HTML vulnerability report
 
 ---
 
-## 8) How GitLab executes everything internally
+## 7) What happens internally when Trivy runs
 
-```
-Runner starts
-↓
-install-job
-  installs tools
-↓
-compile-job
-  compiles code
-↓
-gitleaks-scan-job
-  checks for secrets
-↓
-trivy-fs-scan-job
-  checks vulnerabilities
-
-```
-
-If **any security job fails**, pipeline stops immediately.
+1. Runner checks out code
+2. Trivy downloads vulnerability database
+3. Reads dependency files like pom.xml
+4. Matches versions against CVE database
+5. Generates report
+6. Fails job if high severity issues exist (default behavior)
 
 ---
 
-## 9) Where you see the results
+## 8) How Gitleaks and Trivy work together
 
-In GitLab UI:
+| Tool     | Purpose                | Risk prevented   |
+| -------- | ---------------------- | ---------------- |
+| Gitleaks | Secret scanning        | Credential leaks |
+| Trivy    | Vulnerability scanning | Dependency CVEs  |
 
-```
-Project → CI/CD → Pipelines → Job → Artifacts
+Together they cover:
 
-```
-
-Files available:
-
-- `gitleaks-report.txt`
-- `trivy-report.html`
+* Secrets exposure
+* Dependency vulnerabilities
+* Config risks
 
 ---
+
+## 9) Why this setup is industry standard
+
+* Used in production pipelines
+* Works with self-hosted runners
+* CI-first security enforcement
+* Audit friendly
+* Minimal false positives
+* Fast execution
+
+
