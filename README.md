@@ -538,3 +538,240 @@ tags:
 
 <img width="1521" height="744" alt="image" src="https://github.com/user-attachments/assets/cf6563ad-1d66-46a9-8458-10d4cf476631" />
 
+
+Below is a **from-scratch, clean explanation** of how to **install and use Gitleaks and Trivy in a GitLab CI pipeline**, starting from **why we install**, **where we install**, **the exact YAML code**, and **how GitLab executes it internally**.
+
+---
+
+## 1) Why installation is needed in GitLab CI
+
+In GitLab CI, each job runs on a **runner machine**.
+
+By default, that machine **does not have security tools installed**.
+
+So we must:
+
+- Install tools once
+- Reuse them in later jobs
+- Keep the pipeline fast and stable
+
+This is why we create a dedicated **install stage**.
+
+---
+
+## 2) Pipeline design for security tools
+
+**Correct DevSecOps order**
+
+```
+Install tools
+↓
+Compile code
+↓
+Secret scan (Gitleaks)
+↓
+Vulnerability scan (Trivy)
+↓
+Tests
+↓
+SonarQube
+↓
+Build
+↓
+Deploy
+
+```
+
+Security scans run **before tests and build** to stop insecure code early.
+
+---
+
+## 3) Full GitLab CI YAML starting from install stage
+
+### Global configuration
+
+```yaml
+image:
+  name: ubuntu:22.04
+
+variables:
+  DEBIAN_FRONTEND: noninteractive
+
+stages:
+  - install
+  - compile
+  - gitleaks
+  - trivy
+  - test
+
+```
+
+---
+
+## 4) Install stage (MOST IMPORTANT)
+
+This job installs:
+
+- Java
+- Maven
+- Gitleaks
+- Trivy
+
+```yaml
+install-job:
+  stage: install
+  script:
+    - apt-get update
+    - apt-get install -y wget gnupg curl unzip
+
+    # Install Java
+    - apt-get install -y openjdk-21-jdk-headless
+    - java -version
+
+    # Install Maven
+    - apt-get install -y maven
+    - mvn -version
+
+    # Install Gitleaks
+    - apt-get install -y gitleaks
+    - gitleaks version
+
+    # Install Trivy
+    - wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+      | gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+    - echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+      > /etc/apt/sources.list.d/trivy.list
+    - apt-get update
+    - apt-get install -y trivy
+    - trivy --version
+
+```
+
+### What happens internally
+
+1. Runner starts Ubuntu container
+2. Updates package lists
+3. Installs security tools
+4. Tools become available to later jobs
+
+---
+
+## 5) Compile stage
+
+```yaml
+compile-job:
+  stage: compile
+  needs:
+    - install-job
+  script:
+    - mvn clean compile
+
+```
+
+### Execution
+
+- Uses Maven installed earlier
+- Compiles Java source code
+- If compilation fails, pipeline stops
+
+---
+
+## 6) Gitleaks implementation
+
+### YAML code
+
+```yaml
+gitleaks-scan-job:
+  stage: gitleaks
+  needs:
+    - compile-job
+  script:
+    - gitleaks detect --source . --report-path gitleaks-report.txt
+  artifacts:
+    paths:
+      - gitleaks-report.txt
+
+```
+
+### What happens step by step
+
+1. GitLab checks out repository
+2. Gitleaks scans:
+    - Source files
+    - Git history
+3. Detects secrets like:
+    - API keys
+    - Passwords
+    - Tokens
+4. Generates report
+5. If secrets found → job fails
+
+---
+
+## 7) Trivy filesystem scan implementation
+
+### YAML code
+
+```yaml
+trivy-fs-scan-job:
+  stage: trivy
+  needs:
+    - gitleaks-scan-job
+  script:
+    - trivy fs . --format html --output trivy-report.html
+  artifacts:
+    paths:
+      - trivy-report.html
+
+```
+
+### What happens step by step
+
+1. Trivy downloads vulnerability database
+2. Scans project files:
+    - pom.xml
+    - dependencies
+    - config files
+3. Matches CVEs
+4. Generates HTML vulnerability report
+
+---
+
+## 8) How GitLab executes everything internally
+
+```
+Runner starts
+↓
+install-job
+  installs tools
+↓
+compile-job
+  compiles code
+↓
+gitleaks-scan-job
+  checks for secrets
+↓
+trivy-fs-scan-job
+  checks vulnerabilities
+
+```
+
+If **any security job fails**, pipeline stops immediately.
+
+---
+
+## 9) Where you see the results
+
+In GitLab UI:
+
+```
+Project → CI/CD → Pipelines → Job → Artifacts
+
+```
+
+Files available:
+
+- `gitleaks-report.txt`
+- `trivy-report.html`
+
+---
