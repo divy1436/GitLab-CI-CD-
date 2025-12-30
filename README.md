@@ -3,7 +3,7 @@
 
 ```bash
 docker -d -p 9000:9000 sonarqube:community
-```
+``` 
 
 1. Open [`http://localhost:9000`](http://localhost:9000) in your browser.
 2. Log in to SonarQube.
